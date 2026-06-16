@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { I, Orb, TaskIcon, SectionCard, Badge, Progress, Avatar, Stat, Btn } from '../ui.jsx'
-import { SKILLS, PROMPTS, ALL_TASKS, STAGES, HERO, STATUS, taskById, ARTIFACT_TYPES, artifactTypeOf, PROVENANCE, LINK_TYPES, artifactById, WORKFLOWS } from '../data.js'
+import { SKILLS, PROMPTS, ALL_TASKS, STAGES, HERO, STATUS, taskById, ARTIFACT_TYPES, artifactTypeOf, PROVENANCE, LINK_TYPES, artifactById, WORKFLOWS, docTemplate, critiqueFor } from '../data.js'
 
 const statusBadge = (s) => {
   const st = STATUS[s] || STATUS.gray
@@ -8,7 +8,7 @@ const statusBadge = (s) => {
 }
 
 // ============ PM Dashboard ============
-export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onOpenProject, onNav }) {
+export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onOpenProject, onNav, onOpenArtifact }) {
   const hour = new Date().getHours()
   const hi = hour < 12 ? 'Доброе утро' : hour < 17 ? 'Добрый день' : 'Добрый вечер'
   const quick = HERO.slice(0, 4).map((id) => taskById(id)).filter(Boolean)
@@ -50,7 +50,7 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
               {needsReview.map((a) => {
                 const ty = artifactTypeOf(a.type)
                 return (
-                  <button key={a.id} className="row" onClick={() => onNav('artifacts')}>
+                  <button key={a.id} className="row" onClick={() => onOpenArtifact ? onOpenArtifact(a.id) : onNav('artifacts')}>
                     <TaskIcon name={ty.icon} size={28} bg={`${ty.color}1a`} color={ty.color} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ellipsis" style={{ fontSize: 12.5, fontWeight: 500 }}>{a.title}</div>
@@ -94,7 +94,7 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
             const evN = (a.evidence || []).length
             const lkN = (a.links || []).length
             return (
-              <button key={a.id} className="row" onClick={() => onNav('artifacts')}>
+              <button key={a.id} className="row" onClick={() => onOpenArtifact ? onOpenArtifact(a.id) : onNav('artifacts')}>
                 <TaskIcon name={ty.icon} size={28} bg={`${ty.color}1a`} color={ty.color} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="ellipsis" style={{ fontSize: 12.5, fontWeight: 500 }}>{a.title}</div>
@@ -234,7 +234,7 @@ function MemoryField({ label, value, onChange, auto }) {
   )
 }
 
-function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, onArm, onOpenWorkflow }) {
+function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, onArm, onOpenWorkflow, onOpenArtifact }) {
   const pArtifacts = artifacts.filter((a) => a.project === p.name)
   const decisions = pArtifacts.filter((a) => a.type === 'decision')
   const lastDecision = decisions[0]
@@ -289,7 +289,7 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
               const ty = artifactTypeOf(a.type)
               return (
                 <div key={a.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button onClick={() => onOpenArtifact && onOpenArtifact(a.id)} style={{ background: 'none', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <TaskIcon name={ty.icon} size={28} bg={`${ty.color}1a`} color={ty.color} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ellipsis" style={{ fontSize: 12.5, fontWeight: 500, display: 'flex', gap: 7, alignItems: 'center' }}>
@@ -298,7 +298,7 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
                       <div style={{ fontSize: 10.5, fontWeight: 600, color: ty.color }}>{ty.label}</div>
                     </div>
                     {statusBadge(a.status)}
-                  </div>
+                  </button>
                   {(a.links || []).length > 0 && (
                     <div style={{ marginLeft: 38, marginTop: 7, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {a.links.map((l, i) => {
@@ -362,11 +362,11 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
   )
 }
 
-export function Projects({ projects, artifacts, selectedId, onOpen, onBack, onArm, onCreateInProject, onOpenWorkflow }) {
+export function Projects({ projects, artifacts, selectedId, onOpen, onBack, onArm, onCreateInProject, onOpenWorkflow, onOpenArtifact }) {
   if (selectedId) {
     const p = projects.find((x) => x.id === selectedId)
     if (!p) return null
-    return <ProjectWorkspace project={p} artifacts={artifacts} onBack={onBack} onCreateInProject={onCreateInProject} onArm={onArm} onOpenWorkflow={onOpenWorkflow} />
+    return <ProjectWorkspace project={p} artifacts={artifacts} onBack={onBack} onCreateInProject={onCreateInProject} onArm={onArm} onOpenWorkflow={onOpenWorkflow} onOpenArtifact={onOpenArtifact} />
   }
 
   return (
@@ -524,8 +524,199 @@ export function WorkflowRunner({ workflow, project, onProduce, onBack }) {
   )
 }
 
+// ============ Artifact detail (trust UX + decision record) ============
+const EV_ICON = { url: 'Globe', file: 'FileText', artifact: 'Layers', metric: 'BarChart3' }
+
+export function ArtifactDetail({ artifact: a, allArtifacts, onBack, onApprove, onCritique, onCreateDecision, onOpenArtifact }) {
+  const [decTitle, setDecTitle] = useState('')
+  const [decOpen, setDecOpen] = useState(false)
+  if (!a) return null
+  const ty = artifactTypeOf(a.type)
+  const body = docTemplate(a.taskId, a.title)
+  const linkOf = (id) => allArtifacts.find((x) => x.id === id) || artifactById(id)
+  const incoming = allArtifacts.filter((x) => (x.links || []).some((l) => l.artifactId === a.id))
+  const isDecision = a.type === 'decision'
+  const canDecide = a.status === 'approved' && !isDecision
+
+  return (
+    <div className="scroll">
+      <div className="wrap" style={{ maxWidth: 1060 }}>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={onBack}><I name="ArrowLeft" size={14} /> Назад</button>
+
+        <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
+            <TaskIcon name={ty.icon} size={40} bg={`${ty.color}1a`} color={ty.color} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 5 }}>
+                <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.025em' }}>{a.title}</h1>
+                {statusBadge(a.status)}
+                {a.version > 1 && <span className="muted" style={{ fontSize: 11.5 }}>v{a.version}</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: ty.color }}>{ty.label}</span>
+                {a.project && <span className="muted" style={{ fontSize: 11.5 }}>· {a.project}</span>}
+                {(a.source || []).map((s) => PROVENANCE[s] && (
+                  <span key={s} style={{ fontSize: 10.5, display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--ink-3)', background: 'rgba(27,28,32,0.05)', padding: '2px 7px', borderRadius: 999 }}>
+                    <I name={PROVENANCE[s].icon} size={10} /> {PROVENANCE[s].label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'start' }}>
+          {/* document body */}
+          <div className="card">
+            <div className="doc" style={{ padding: 18 }} dangerouslySetInnerHTML={{ __html: body }} />
+          </div>
+
+          {/* right rail: trust */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* lifecycle / actions */}
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                <I name="ShieldCheck" size={14} color="var(--ai)" />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Доверие и статус</span>
+              </div>
+              <LifecycleBar status={a.status} />
+              {!isDecision && (
+                <div style={{ display: 'flex', gap: 7, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button className="btn" onClick={() => onCritique(a.id)} disabled={a.status === 'approved'}
+                    style={{ fontSize: 12, opacity: a.status === 'approved' ? 0.5 : 1 }}>
+                    <I name="Swords" size={13} /> Критика
+                  </button>
+                  {a.status !== 'approved' ? (
+                    <Btn variant="ai" onClick={() => onApprove(a.id)} style={{ fontSize: 12 }}><I name="Check" size={13} /> Утвердить</Btn>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}><I name="CircleCheck" size={14} /> Утверждён</span>
+                  )}
+                </div>
+              )}
+
+              {/* critique result */}
+              {a.critique && a.critique.length > 0 && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7 }}>
+                    <I name="Swords" size={12} color="var(--amber)" /> Red-team: {a.critique.length} замечаний
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {a.critique.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 6, fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.45 }}>
+                        <I name="Dot" size={14} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} /> {c}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* decision record */}
+            {(canDecide || isDecision) && (
+              <div className="card" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                  <I name="Gavel" size={14} color="var(--ink)" />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Решение</span>
+                </div>
+                {isDecision ? (
+                  <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+                    Это запись решения. Основания — в связях ниже.
+                  </div>
+                ) : !decOpen ? (
+                  <>
+                    <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+                      Артефакт утверждён. Зафиксируйте решение — оно свяжется с этим артефактом как основанием.
+                    </div>
+                    <Btn variant="ai" onClick={() => setDecOpen(true)} style={{ fontSize: 12 }}><I name="Gavel" size={13} /> Зафиксировать решение</Btn>
+                  </>
+                ) : (
+                  <>
+                    <input autoFocus value={decTitle} onChange={(e) => setDecTitle(e.target.value)} placeholder="Что решили? Напр.: запускаем MVP без карты лояльности"
+                      style={{ width: '100%', height: 38, padding: '0 11px', border: '1px solid var(--ai)', borderRadius: 9, fontSize: 12.5, outline: 'none', background: '#fff', marginBottom: 9 }} />
+                    <div style={{ display: 'flex', gap: 7 }}>
+                      <Btn variant="ai" onClick={() => decTitle.trim() && onCreateDecision(a, decTitle.trim())} style={{ fontSize: 12, opacity: decTitle.trim() ? 1 : 0.5 }}><I name="Check" size={13} /> Зафиксировать</Btn>
+                      <button className="btn" style={{ fontSize: 12 }} onClick={() => setDecOpen(false)}>Отмена</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* evidence */}
+            <SectionCard title="Evidence" icon={<I name="Paperclip" size={13} color="var(--ink-3)" />}>
+              {(a.evidence || []).length === 0 ? (
+                <div className="muted" style={{ padding: '14px 16px', fontSize: 11.5 }}>Источников пока нет.</div>
+              ) : a.evidence.map((e, i) => {
+                const clickable = e.kind === 'artifact' && e.ref
+                return (
+                  <button key={i} className="row" onClick={() => clickable && onOpenArtifact(e.ref)} style={{ cursor: clickable ? 'pointer' : 'default' }}>
+                    <TaskIcon name={EV_ICON[e.kind] || 'File'} size={24} bg="rgba(27,28,32,0.05)" color="var(--ink-2)" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ellipsis" style={{ fontSize: 12 }}>{e.label}</div>
+                      <div className="muted" style={{ fontSize: 10.5 }}>{e.kind}</div>
+                    </div>
+                    {clickable && <I name="ArrowUpRight" size={13} color="var(--ink-3)" />}
+                  </button>
+                )
+              })}
+            </SectionCard>
+
+            {/* links */}
+            {((a.links || []).length > 0 || incoming.length > 0) && (
+              <SectionCard title="Связи" icon={<I name="Link2" size={13} color="var(--ink-3)" />}>
+                {(a.links || []).map((l, i) => {
+                  const t = linkOf(l.artifactId)
+                  return (
+                    <button key={`o${i}`} className="row" onClick={() => t && onOpenArtifact(t.id)}>
+                      <I name="ArrowUpRight" size={14} color="var(--ai)" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ai)' }}>{LINK_TYPES[l.type]} </span>
+                        <span className="ellipsis" style={{ fontSize: 12 }}>{t ? t.title : '—'}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+                {incoming.map((x, i) => (
+                  <button key={`i${i}`} className="row" onClick={() => onOpenArtifact(x.id)}>
+                    <I name="ArrowDownLeft" size={14} color="var(--ink-3)" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)' }}>используется в </span>
+                      <span className="ellipsis" style={{ fontSize: 12 }}>{x.title}</span>
+                    </div>
+                  </button>
+                ))}
+              </SectionCard>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LifecycleBar({ status }) {
+  const flow = ['draft', 'in_review', 'approved', 'decided']
+  const labels = { draft: 'Черновик', in_review: 'Ревью', approved: 'Утверждён', decided: 'Решено' }
+  let idx = flow.indexOf(status)
+  if (status === 'decided') idx = 3
+  if (idx < 0) idx = 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      {flow.map((s, i) => (
+        <React.Fragment key={s}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 999, background: i <= idx ? 'var(--ai)' : 'rgba(27,28,32,0.12)' }} />
+            <span style={{ fontSize: 9.5, color: i <= idx ? 'var(--ink-2)' : 'var(--ink-3)', fontWeight: i === idx ? 700 : 500 }}>{labels[s]}</span>
+          </div>
+          {i < flow.length - 1 && <div style={{ flex: 1, height: 2, background: i < idx ? 'var(--ai)' : 'rgba(27,28,32,0.12)', marginBottom: 14 }} />}
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
 // ============ Artifacts table ============
-export function Artifacts({ artifacts }) {
+export function Artifacts({ artifacts, onOpenArtifact }) {
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const types = ['all', ...Object.keys(ARTIFACT_TYPES).filter((t) => artifacts.some((a) => a.type === t))]
@@ -566,7 +757,7 @@ export function Artifacts({ artifacts }) {
             const evN = (a.evidence || []).length
             const lkN = (a.links || []).length
             return (
-              <div key={a.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,1.6fr) 1fr 150px 116px', padding: '12px 16px', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+              <button key={a.id} onClick={() => onOpenArtifact && onOpenArtifact(a.id)} style={{ background: 'none', width: '100%', textAlign: 'left', display: 'grid', gridTemplateColumns: 'minmax(260px,1.6fr) 1fr 150px 116px', padding: '12px 16px', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   <TaskIcon name={ty.icon} size={28} bg={`${ty.color}1a`} color={ty.color} />
                   <div style={{ minWidth: 0 }}>
@@ -594,7 +785,7 @@ export function Artifacts({ artifacts }) {
                   </span>
                 </div>
                 <div>{statusBadge(a.status)}</div>
-              </div>
+              </button>
             )
           })}
         </div>

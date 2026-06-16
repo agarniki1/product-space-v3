@@ -2,10 +2,10 @@ import React, { useState, useCallback } from 'react'
 import Sidebar from './Sidebar.jsx'
 import Chat from './Chat.jsx'
 import { I, Orb } from './ui.jsx'
-import { PMDashboard, Library, Projects, Artifacts, WorkflowRunner } from './views/PMViews.jsx'
+import { PMDashboard, Library, Projects, Artifacts, WorkflowRunner, ArtifactDetail } from './views/PMViews.jsx'
 import { OwnerOverview, PmDetail } from './views/OwnerViews.jsx'
 import {
-  ALL_TASKS, taskById, docTemplate, artifactTypeForTask,
+  ALL_TASKS, taskById, docTemplate, artifactTypeForTask, critiqueFor,
   PM_PROFILE, PM_PROJECTS, PM_ARTIFACTS, PM_CHATS,
   OWNER_PROFILE, PMS, WORKFLOWS, workflowById,
 } from './data.js'
@@ -38,6 +38,7 @@ export default function App() {
   const [createProjectId, setCreateProjectId] = useState(null)
   const [artifacts, setArtifacts] = useState(PM_ARTIFACTS)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState(null)
+  const [selectedArtifactId, setSelectedArtifactId] = useState(null)
 
   const isPm = persona === 'pm'
   const profile = isPm ? PM_PROFILE : OWNER_PROFILE
@@ -106,6 +107,24 @@ export default function App() {
     setView('workflow')
   }
 
+  const onOpenArtifact = (id) => { setSelectedArtifactId(id); setView('artifact') }
+  const updateArtifact = (id, patch) => setArtifacts((cur) => cur.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  const approveArtifact = (id) => updateArtifact(id, { status: 'approved' })
+  const critiqueArtifact = (id) => setArtifacts((cur) => cur.map((a) => {
+    if (a.id !== id) return a
+    const source = (a.source || []).includes('reviewed') ? a.source : [...(a.source || []), 'reviewed']
+    return { ...a, critique: critiqueFor(a.type), source, status: a.status === 'draft' ? 'in_review' : a.status }
+  }))
+  const createDecision = (from, title) => {
+    const id = produceArtifact({
+      type: 'decision', title, taskId: from.taskId, project: from.project,
+      status: 'decided', source: ['manual'],
+      evidence: [{ kind: 'artifact', label: from.title, ref: from.id }],
+      links: [{ type: 'decided_by', artifactId: from.id }],
+    })
+    setSelectedArtifactId(id); setView('artifact')
+  }
+
   const onSend = (text, ids) => {
     const userMsg = { id: uid(), role: 'user', text }
     const thinkingId = uid()
@@ -151,7 +170,11 @@ export default function App() {
   const selectedProject = PM_PROJECTS.find((p) => p.id === selectedProjectId) || null
   const selectedPm = PMS.find((p) => p.id === selectedPmId) || null
 
-  const crumb = view === 'workflow' && selectedWorkflowId
+  const selectedArtifact = artifacts.find((x) => x.id === selectedArtifactId) || null
+
+  const crumb = view === 'artifact' && selectedArtifact
+      ? [selectedArtifact.project || 'Артефакты', selectedArtifact.title]
+    : view === 'workflow' && selectedWorkflowId
       ? ['Проекты', createProject ? createProject.name : '', (workflowById(selectedWorkflowId) || {}).name].filter(Boolean)
     : selectedProject ? ['Проекты', selectedProject.name]
     : selectedPm ? ['Обзор команды', selectedPm.name]
@@ -164,10 +187,19 @@ export default function App() {
         profile={PM_PROFILE} projects={PM_PROJECTS} artifacts={artifacts}
         onArm={onArm} onNav={onNav} onCreate={onCreate}
         onOpenProject={(id) => { setSelectedProjectId(id); setView('projects') }}
+        onOpenArtifact={onOpenArtifact}
       />
     )
     else if (view === 'library') content = <Library onArm={onArm} />
-    else if (view === 'artifacts') content = <Artifacts artifacts={artifacts} />
+    else if (view === 'artifacts') content = <Artifacts artifacts={artifacts} onOpenArtifact={onOpenArtifact} />
+    else if (view === 'artifact') content = (
+      <ArtifactDetail
+        artifact={selectedArtifact} allArtifacts={artifacts}
+        onBack={() => { selectedArtifact && selectedArtifact.project ? (setSelectedProjectId(PM_PROJECTS.find((p) => p.name === selectedArtifact.project)?.id || null), setView('projects')) : setView('artifacts') }}
+        onApprove={approveArtifact} onCritique={critiqueArtifact}
+        onCreateDecision={createDecision} onOpenArtifact={onOpenArtifact}
+      />
+    )
     else if (view === 'workflow') content = (
       <WorkflowRunner
         workflow={workflowById(selectedWorkflowId)} project={createProject}
@@ -181,6 +213,7 @@ export default function App() {
         onOpen={(id) => setSelectedProjectId(id)} onBack={() => setSelectedProjectId(null)} onArm={onArm}
         onCreateInProject={onCreateInProject}
         onOpenWorkflow={(wid) => onOpenWorkflow(wid, selectedProjectId)}
+        onOpenArtifact={onOpenArtifact}
       />
     )
     else if (view === 'chat') content = (
