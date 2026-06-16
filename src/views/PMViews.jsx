@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { I, Orb, TaskIcon, SectionCard, Badge, Progress, Avatar, Stat, Btn } from '../ui.jsx'
-import { SKILLS, PROMPTS, ALL_TASKS, STAGES, HERO, STATUS, taskById, ARTIFACT_TYPES, artifactTypeOf, PROVENANCE, LINK_TYPES, artifactById } from '../data.js'
+import { SKILLS, PROMPTS, ALL_TASKS, STAGES, HERO, STATUS, taskById, ARTIFACT_TYPES, artifactTypeOf, PROVENANCE, LINK_TYPES, artifactById, WORKFLOWS } from '../data.js'
 
 const statusBadge = (s) => {
   const st = STATUS[s] || STATUS.gray
@@ -234,7 +234,7 @@ function MemoryField({ label, value, onChange, auto }) {
   )
 }
 
-function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, onArm }) {
+function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, onArm, onOpenWorkflow }) {
   const pArtifacts = artifacts.filter((a) => a.project === p.name)
   const decisions = pArtifacts.filter((a) => a.type === 'decision')
   const lastDecision = decisions[0]
@@ -264,6 +264,19 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
             <Stat value={decisions.length} label="Решений" />
           </div>
         </div>
+
+        {/* workflow launcher */}
+        {WORKFLOWS.map((w) => (
+          <button key={w.id} className="card" onClick={() => onOpenWorkflow(w.id)}
+            style={{ width: '100%', textAlign: 'left', padding: 14, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(180deg, rgba(91,120,239,0.07), rgba(91,120,239,0.03))', border: '1px solid rgba(91,120,239,0.2)' }}>
+            <TaskIcon name={w.icon || 'Workflow'} size={34} bg="rgba(91,120,239,0.14)" color="var(--ai)" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Workflow: {w.name}</div>
+              <div className="muted ellipsis" style={{ fontSize: 11.5 }}>{w.desc}</div>
+            </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--ai)' }}>Запустить <I name="ArrowRight" size={14} /></span>
+          </button>
+        ))}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'start' }}>
           {/* left: artifact map */}
@@ -349,11 +362,11 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
   )
 }
 
-export function Projects({ projects, artifacts, selectedId, onOpen, onBack, onArm, onCreateInProject }) {
+export function Projects({ projects, artifacts, selectedId, onOpen, onBack, onArm, onCreateInProject, onOpenWorkflow }) {
   if (selectedId) {
     const p = projects.find((x) => x.id === selectedId)
     if (!p) return null
-    return <ProjectWorkspace project={p} artifacts={artifacts} onBack={onBack} onCreateInProject={onCreateInProject} onArm={onArm} />
+    return <ProjectWorkspace project={p} artifacts={artifacts} onBack={onBack} onCreateInProject={onCreateInProject} onArm={onArm} onOpenWorkflow={onOpenWorkflow} />
   }
 
   return (
@@ -378,6 +391,134 @@ export function Projects({ projects, artifacts, selectedId, onOpen, onBack, onAr
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ============ Workflow runner (end-to-end chain) ============
+export function WorkflowRunner({ workflow, project, onProduce, onBack }) {
+  const [stepIndex, setStepIndex] = useState(0)
+  const [produced, setProduced] = useState([])
+  const [running, setRunning] = useState(false)
+  if (!workflow) return null
+  const steps = workflow.steps
+  const allDone = stepIndex >= steps.length
+
+  const runStep = () => {
+    const step = steps[stepIndex]
+    setRunning(true)
+    setTimeout(() => {
+      const prev = produced[stepIndex - 1]
+      const evidence = prev ? [{ kind: 'artifact', label: prev.title, ref: prev.id }] : []
+      const links = []
+      if (prev) links.push({ type: 'derived_from', artifactId: prev.id })
+      if (stepIndex === steps.length - 1 && produced[0]) links.push({ type: 'backed_by', artifactId: produced[0].id })
+      const id = onProduce({
+        type: step.produces, title: step.title, taskId: step.taskId,
+        project: project ? project.name : null, status: step.status, evidence, links,
+      })
+      setProduced((cur) => [...cur, { id, title: step.title, type: step.produces, status: step.status, prevTitle: prev ? prev.title : null }])
+      setStepIndex((i) => i + 1)
+      setRunning(false)
+    }, 900)
+  }
+
+  return (
+    <div className="scroll">
+      <div className="wrap" style={{ maxWidth: 720 }}>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={onBack}><I name="ArrowLeft" size={14} /> Проект</button>
+
+        <div className="card" style={{ padding: 20, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 8 }}>
+            <TaskIcon name={workflow.icon || 'Workflow'} size={34} bg="rgba(91,120,239,0.12)" color="var(--ai)" />
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{workflow.name}</div>
+              {project && <div className="muted" style={{ fontSize: 12 }}>Проект «{project.name}»</div>}
+            </div>
+          </div>
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>{workflow.desc}</div>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          {steps.map((step, i) => {
+            const state = i < stepIndex ? 'done' : (i === stepIndex && !allDone ? 'active' : 'locked')
+            const ty = artifactTypeOf(step.produces)
+            const st = STAGES.find((s) => s.id === step.stage)
+            const out = produced[i]
+            const last = i === steps.length - 1
+            return (
+              <div key={step.id} style={{ display: 'flex', gap: 14, opacity: state === 'locked' ? 0.5 : 1 }}>
+                {/* rail */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 999, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: state === 'done' ? 'var(--green)' : state === 'active' ? 'var(--ai)' : 'rgba(27,28,32,0.08)',
+                    color: state === 'locked' ? 'var(--ink-3)' : '#fff', fontSize: 12, fontWeight: 700,
+                  }}>
+                    {state === 'done' ? <I name="Check" size={15} /> : state === 'locked' ? <I name="Lock" size={12} /> : i + 1}
+                  </div>
+                  {!last && <div style={{ width: 2, flex: 1, minHeight: 24, background: i < stepIndex ? 'var(--green)' : 'var(--border)' }} />}
+                </div>
+
+                {/* body */}
+                <div style={{ flex: 1, paddingBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{step.label}</span>
+                    {st && <span style={{ fontSize: 10.5, fontWeight: 600, color: st.color, background: st.bg, padding: '1px 7px', borderRadius: 999 }}>{st.label}</span>}
+                    <span className="muted" style={{ fontSize: 11 }}>→ {ty.label}</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>{step.desc}</div>
+
+                  {state === 'active' && (
+                    <Btn variant="ai" onClick={runStep} style={running ? { opacity: 0.7, pointerEvents: 'none' } : {}}>
+                      {running ? <><I name="Loader" size={14} /> Генерирую…</> : <><I name="Play" size={14} /> Запустить шаг</>}
+                    </Btn>
+                  )}
+
+                  {state === 'done' && out && (
+                    <div className="card" style={{ padding: 12, background: 'var(--panel)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <TaskIcon name={ty.icon} size={28} bg={`${ty.color}1a`} color={ty.color} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="ellipsis" style={{ fontSize: 12.5, fontWeight: 600 }}>{out.title}</div>
+                          <div style={{ fontSize: 10.5, fontWeight: 600, color: ty.color }}>{ty.label}</div>
+                        </div>
+                        {statusBadge(out.status)}
+                      </div>
+                      {out.prevTitle && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-3)' }}>
+                          <I name="CornerDownRight" size={11} />
+                          <span style={{ color: 'var(--ai)', fontWeight: 600 }}>выведен из</span>
+                          <span className="ellipsis">{out.prevTitle}</span>
+                          {last && <span className="muted"> · + подкреплён discovery</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {state === 'locked' && (
+                    <div className="muted" style={{ fontSize: 11.5 }}>Откроется после предыдущего шага</div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {allDone && (
+          <div className="card" style={{ padding: 18, marginTop: 4, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+              <I name="CircleCheck" size={18} color="var(--green)" />
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Готово — {steps.length} связанных артефакта</span>
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>
+              Цепочка discovery → synthesis → PRD собрана и лежит в проекте. PRD несёт связи на проблему и discovery — не «из воздуха».
+            </div>
+            <Btn variant="ai" onClick={onBack}><I name="FolderOpen" size={14} /> Открыть проект — увидеть граф</Btn>
+          </div>
+        )}
       </div>
     </div>
   )

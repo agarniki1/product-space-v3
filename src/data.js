@@ -208,6 +208,28 @@ export const artifactTypeForTask = (taskId) => {
   const t = taskById(taskId)
   return (t && STAGE_ARTIFACT_TYPE[t.stage]) || 'research_note'
 }
+
+// ---- workflows: сквозные цепочки, где выход шага = evidence следующего ----
+export const WORKFLOWS = [
+  {
+    id: 'w1',
+    name: 'Discovery → PRD',
+    desc: 'От сырого ресёрча к спеке. Каждый шаг подкреплён предыдущим — PRD физически не «из воздуха».',
+    icon: 'Workflow',
+    steps: [
+      { id: 'wd', label: 'Discovery', stage: 'discovery', taskId: 's3', produces: 'jtbd',
+        status: 'approved', title: 'JTBD из интервью',
+        desc: 'Свести интервью в работы пользователя: push/pull, desired outcomes.' },
+      { id: 'ws', label: 'Synthesis', stage: 'discovery', taskId: 's2', produces: 'problem_statement',
+        status: 'approved', title: 'Problem statement',
+        desc: 'От jobs к сформулированной проблеме и возможностям.' },
+      { id: 'wp', label: 'PRD', stage: 'delivery', taskId: 's10', produces: 'prd',
+        status: 'in_review', title: 'PRD: спека решения',
+        desc: 'Собрать спеку, опираясь на проблему и discovery как evidence.' },
+    ],
+  },
+]
+export const workflowById = (id) => WORKFLOWS.find((w) => w.id === id)
 // все артефакты, связанные с данным (входящие + исходящие связи)
 export const linkedArtifacts = (id) => {
   const a = artifactById(id)

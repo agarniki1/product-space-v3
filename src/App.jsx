@@ -2,12 +2,12 @@ import React, { useState, useCallback } from 'react'
 import Sidebar from './Sidebar.jsx'
 import Chat from './Chat.jsx'
 import { I, Orb } from './ui.jsx'
-import { PMDashboard, Library, Projects, Artifacts } from './views/PMViews.jsx'
+import { PMDashboard, Library, Projects, Artifacts, WorkflowRunner } from './views/PMViews.jsx'
 import { OwnerOverview, PmDetail } from './views/OwnerViews.jsx'
 import {
   ALL_TASKS, taskById, docTemplate, artifactTypeForTask,
   PM_PROFILE, PM_PROJECTS, PM_ARTIFACTS, PM_CHATS,
-  OWNER_PROFILE, PMS,
+  OWNER_PROFILE, PMS, WORKFLOWS, workflowById,
 } from './data.js'
 
 let _uid = 0
@@ -24,6 +24,7 @@ const CRUMBS = {
   artifacts: ['Артефакты'],
   projects: ['Проекты'],
   chat: ['Чат'],
+  workflow: ['Workflow'],
   overview: ['Обзор команды'],
 }
 
@@ -36,6 +37,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([])
   const [createProjectId, setCreateProjectId] = useState(null)
   const [artifacts, setArtifacts] = useState(PM_ARTIFACTS)
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState(null)
 
   const isPm = persona === 'pm'
   const profile = isPm ? PM_PROFILE : OWNER_PROFILE
@@ -55,7 +57,7 @@ export default function App() {
   const onNav = (v) => {
     setView(v)
     if (v !== 'projects') setSelectedProjectId(null)
-    if (v !== 'library' && v !== 'chat') setCreateProjectId(null)
+    if (v !== 'library' && v !== 'chat' && v !== 'workflow') setCreateProjectId(null)
   }
 
   const onArm = useCallback((id) => {
@@ -86,6 +88,22 @@ export default function App() {
     setChatMessages([])
     setArmedSkillIds([])
     setView('library')
+  }
+
+  // создаёт персистентный артефакт в графе и возвращает его id (для workflow-хендоффов)
+  const produceArtifact = useCallback((spec) => {
+    const id = newArtifactId()
+    setArtifacts((cur) => [{
+      id, version: 1, when: 'только что', source: ['drafted'],
+      evidence: [], links: [], ...spec,
+    }, ...cur])
+    return id
+  }, [])
+
+  const onOpenWorkflow = (workflowId, projectId) => {
+    setCreateProjectId(projectId)
+    setSelectedWorkflowId(workflowId)
+    setView('workflow')
   }
 
   const onSend = (text, ids) => {
@@ -133,7 +151,9 @@ export default function App() {
   const selectedProject = PM_PROJECTS.find((p) => p.id === selectedProjectId) || null
   const selectedPm = PMS.find((p) => p.id === selectedPmId) || null
 
-  const crumb = selectedProject ? ['Проекты', selectedProject.name]
+  const crumb = view === 'workflow' && selectedWorkflowId
+      ? ['Проекты', createProject ? createProject.name : '', (workflowById(selectedWorkflowId) || {}).name].filter(Boolean)
+    : selectedProject ? ['Проекты', selectedProject.name]
     : selectedPm ? ['Обзор команды', selectedPm.name]
     : (CRUMBS[view] || [view])
 
@@ -148,11 +168,19 @@ export default function App() {
     )
     else if (view === 'library') content = <Library onArm={onArm} />
     else if (view === 'artifacts') content = <Artifacts artifacts={artifacts} />
+    else if (view === 'workflow') content = (
+      <WorkflowRunner
+        workflow={workflowById(selectedWorkflowId)} project={createProject}
+        onProduce={produceArtifact}
+        onBack={() => { setSelectedProjectId(createProjectId); setSelectedWorkflowId(null); setView('projects') }}
+      />
+    )
     else if (view === 'projects') content = (
       <Projects
         projects={PM_PROJECTS} artifacts={artifacts} selectedId={selectedProjectId}
         onOpen={(id) => setSelectedProjectId(id)} onBack={() => setSelectedProjectId(null)} onArm={onArm}
         onCreateInProject={onCreateInProject}
+        onOpenWorkflow={(wid) => onOpenWorkflow(wid, selectedProjectId)}
       />
     )
     else if (view === 'chat') content = (
