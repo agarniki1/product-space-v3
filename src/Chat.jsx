@@ -38,7 +38,7 @@ function ArtifactCard({ msg }) {
   )
 }
 
-export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpenLibrary, greeting }) {
+export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpenLibrary, greeting, contextNote }) {
   const [text, setText] = useState('')
   const taRef = useRef(null)
   const endRef = useRef(null)
@@ -95,9 +95,15 @@ export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpen
       <div className="scroll" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 760, padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Orb size={44} style={{ marginBottom: 16 }} />
-          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 22 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 14 }}>
             {greeting || 'Над чем поработаем?'}
           </div>
+          {contextNote && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 999, background: 'rgba(91,120,239,0.08)', border: '1px solid rgba(91,120,239,0.18)', fontSize: 11.5, color: 'var(--ink-2)', marginBottom: 20, maxWidth: '100%' }}>
+              <I name="Sparkles" size={12} color="var(--ai)" />
+              <span className="ellipsis">Контекст учтён: {contextNote}</span>
+            </div>
+          )}
           {inputBox(true)}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 22, maxWidth: 640 }}>
             {heroTasks.map((t) => (

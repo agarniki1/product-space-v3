@@ -11,7 +11,7 @@ function NavItem({ icon, label, active, badge, onClick }) {
   )
 }
 
-export default function Sidebar({ persona, view, profile, projects, pms, taskCount, onNav, onCreate, onOpenProject, onOpenPm }) {
+export default function Sidebar({ persona, view, profile, projects, pms, taskCount, onNav, onCreate, onOpenProject, onOpenPm, onOpenProfile }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -23,7 +23,7 @@ export default function Sidebar({ persona, view, profile, projects, pms, taskCou
       </div>
 
       <button className="nav-new" onClick={onCreate}>
-        <I name="Plus" size={14} strokeWidth={2.1} /> Создать артефакт
+        <I name="Plus" size={14} strokeWidth={2.1} /> Создать задачу
       </button>
 
       {persona === 'pm' ? (
@@ -31,7 +31,8 @@ export default function Sidebar({ persona, view, profile, projects, pms, taskCou
           <div style={{ padding: '0 2px' }}>
             <NavItem icon="House" label="Главная" active={view === 'dashboard'} onClick={() => onNav('dashboard')} />
             <NavItem icon="Briefcase" label="Проекты" active={view === 'projects'} onClick={() => onNav('projects')} />
-            <NavItem icon="Layers" label="Артефакты" active={view === 'artifacts'} onClick={() => onNav('artifacts')} />
+            <NavItem icon="Layers" label="Задачи" active={view === 'artifacts'} onClick={() => onNav('artifacts')} />
+            <NavItem icon="History" label="История" active={view === 'history'} onClick={() => onNav('history')} />
           </div>
 
           <div className="scroll" style={{ marginTop: 6 }}>
@@ -55,7 +56,7 @@ export default function Sidebar({ persona, view, profile, projects, pms, taskCou
         <>
           <div style={{ padding: '0 2px' }}>
             <NavItem icon="LayoutDashboard" label="Обзор команды" active={view === 'overview'} onClick={() => onNav('overview')} />
-            <NavItem icon="Layers" label="Артефакты" active={view === 'artifacts'} onClick={() => onNav('artifacts')} />
+            <NavItem icon="Layers" label="Задачи" active={view === 'artifacts'} onClick={() => onNav('artifacts')} />
           </div>
 
           <div className="scroll" style={{ marginTop: 6 }}>
@@ -72,13 +73,20 @@ export default function Sidebar({ persona, view, profile, projects, pms, taskCou
         </>
       )}
 
-      <button className="sb-user" style={{ marginTop: 8 }}>
+      <button className="sb-user" style={{ marginTop: 8 }} onClick={onOpenProfile}>
         <Avatar initials={profile.initials} color={profile.color} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600 }} className="ellipsis">{profile.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600 }} className="ellipsis">{profile.name}</div>
+            {profile.plan && (
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.04em', color: '#fff', background: 'linear-gradient(135deg, var(--ai), #8b6cf0)', padding: '1px 6px', borderRadius: 5, flexShrink: 0 }}>
+                {profile.plan.toUpperCase()}
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 11 }} className="muted ellipsis">{profile.role}</div>
         </div>
-        <I name="ChevronsUpDown" size={14} color="var(--ink-3)" />
+        <I name="Settings2" size={14} color="var(--ink-3)" />
       </button>
     </aside>
   )

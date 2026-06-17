@@ -23,9 +23,9 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
             <Orb size={46} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.025em' }}>{hi}, {profile.name.split(' ')[0]}</div>
-              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Продолжите проект или создайте артефакт — всё остаётся связанным и подкреплённым.</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Продолжите проект или создайте задача — всё остаётся связанным и подкреплённым.</div>
             </div>
-            <Btn variant="ai" onClick={onCreate}><I name="Plus" size={14} strokeWidth={2.1} /> Создать артефакт</Btn>
+            <Btn variant="ai" onClick={onCreate}><I name="Plus" size={14} strokeWidth={2.1} /> Создать задачу</Btn>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>Быстро:</span>
@@ -39,7 +39,7 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
           <Stat value={projects.length} label="Проектов" />
-          <Stat value={artifacts.length} label="Артефактов" />
+          <Stat value={artifacts.length} label="Задач" />
           <Stat value={needsReview.length} label="На ревью" />
           <Stat value={decisions.length} label="Решений" />
         </div>
@@ -88,7 +88,7 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
           </SectionCard>
         </div>
 
-        <SectionCard title="Недавние артефакты" icon={<I name="Layers" size={13} color="var(--ink-3)" />} action={{ label: 'Все →', onClick: () => onNav('artifacts') }}>
+        <SectionCard title="Недавние задачи" icon={<I name="Layers" size={13} color="var(--ink-3)" />} action={{ label: 'Все →', onClick: () => onNav('artifacts') }}>
           {artifacts.slice(0, 6).map((a) => {
             const ty = artifactTypeOf(a.type)
             const evN = (a.evidence || []).length
@@ -141,11 +141,11 @@ export function Library({ onArm }) {
       <div className="wrap">
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.88)', border: '1px solid var(--border)', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.03em', color: 'var(--ink-2)', marginBottom: 12 }}>
-            <I name="Plus" size={11} /> Создать артефакт
+            <I name="Plus" size={11} /> Создать задачу
           </div>
           <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em', marginBottom: 6 }}>Что произвести?</div>
           <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-            Выберите навык — многошаговый сценарий с артефактом на выходе, или промт — короткую заготовку под быстрый запрос.
+            Выберите навык — многошаговый сценарий с задачей на выходе, или промт — короткую заготовку под быстрый запрос.
           </div>
 
           <div style={{ position: 'relative', maxWidth: 560, marginBottom: 14 }}>
@@ -255,12 +255,12 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
               </div>
               <div className="muted" style={{ fontSize: 12.5 }}>{p.product} · обновлён {p.updated}</div>
             </div>
-            <Btn variant="ai" onClick={() => onCreateInProject(p.id)}><I name="Plus" size={14} strokeWidth={2.1} /> Создать артефакт</Btn>
+            <Btn variant="ai" onClick={() => onCreateInProject(p.id)}><I name="Plus" size={14} strokeWidth={2.1} /> Создать задачу</Btn>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             <Stat value={p.product} label="Направление" />
             <Stat value={`${p.progress}%`} label="Прогресс" />
-            <Stat value={pArtifacts.length} label="Артефактов" />
+            <Stat value={pArtifacts.length} label="Задач" />
             <Stat value={decisions.length} label="Решений" />
           </div>
         </div>
@@ -280,10 +280,10 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'start' }}>
           {/* left: artifact map */}
-          <SectionCard title="Карта артефактов" icon={<I name="Workflow" size={13} color="var(--ink-3)" />}>
+          <SectionCard title="Карта задач" icon={<I name="Workflow" size={13} color="var(--ink-3)" />}>
             {pArtifacts.length === 0 ? (
               <div className="muted" style={{ padding: '28px 16px', textAlign: 'center', fontSize: 12.5 }}>
-                Пока пусто. Нажмите «Создать артефакт» — он появится здесь со связями и evidence.
+                Пока пусто. Нажмите «Создать задачу» — он появится здесь со связями и evidence.
               </div>
             ) : pArtifacts.map((a) => {
               const ty = artifactTypeOf(a.type)
@@ -330,13 +330,13 @@ function ProjectWorkspace({ project: p, artifacts, onBack, onCreateInProject, on
                 <I name="Brain" size={14} color="var(--ai)" />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Память проекта</span>
               </div>
-              <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>Контекст, который AI подставляет в каждый артефакт проекта.</div>
+              <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>Контекст, который AI подставляет в каждый задача проекта.</div>
               <MemoryField label="Цель" value={mem.goal} onChange={set('goal')} />
               <MemoryField label="Аудитория" value={mem.audience} onChange={set('audience')} />
               <MemoryField label="Ограничения" value={mem.constraints} onChange={set('constraints')} />
               <MemoryField label="North Star" value={mem.nsm} onChange={set('nsm')} />
               <MemoryField label="Последнее решение" auto value={lastDecision ? lastDecision.title : '—'} />
-              <MemoryField label="Артефактов в проекте" auto value={String(pArtifacts.length)} />
+              <MemoryField label="Задач в проекте" auto value={String(pArtifacts.length)} />
             </div>
 
             <SectionCard title="Лог решений" icon={<I name="Gavel" size={13} color="var(--ink-3)" />}>
@@ -511,7 +511,7 @@ export function WorkflowRunner({ workflow, project, onProduce, onBack }) {
           <div className="card" style={{ padding: 18, marginTop: 4, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.25)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
               <I name="CircleCheck" size={18} color="var(--green)" />
-              <span style={{ fontSize: 14, fontWeight: 700 }}>Готово — {steps.length} связанных артефакта</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Готово — {steps.length} связанных задач</span>
             </div>
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>
               Цепочка discovery → synthesis → PRD собрана и лежит в проекте. PRD несёт связи на проблему и discovery — не «из воздуха».
@@ -625,7 +625,7 @@ export function ArtifactDetail({ artifact: a, allArtifacts, onBack, onApprove, o
                 ) : !decOpen ? (
                   <>
                     <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
-                      Артефакт утверждён. Зафиксируйте решение — оно свяжется с этим артефактом как основанием.
+                      Задача утверждена. Зафиксируйте решение — оно свяжется с этой задачей как основанием.
                     </div>
                     <Btn variant="ai" onClick={() => setDecOpen(true)} style={{ fontSize: 12 }}><I name="Gavel" size={13} /> Зафиксировать решение</Btn>
                   </>
@@ -728,8 +728,8 @@ export function Artifacts({ artifacts, onOpenArtifact }) {
       <div className="wrap" style={{ maxWidth: 1040 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em' }}>Артефакты</div>
-            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{filtered.length} артефактов · связанный граф работы</div>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em' }}>Задачи</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{filtered.length} задач · связанный граф работы</div>
           </div>
           <div style={{ position: 'relative', width: 260 }}>
             <I name="Search" size={14} color="var(--ink-3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
@@ -748,7 +748,7 @@ export function Artifacts({ artifacts, onOpenArtifact }) {
 
         <div className="card">
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,1.6fr) 1fr 150px 116px', padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.42)' }}>
-            {['Артефакт', 'Проект', 'Связи', 'Статус'].map((h) => (
+            {['Задача', 'Проект', 'Связи', 'Статус'].map((h) => (
               <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>

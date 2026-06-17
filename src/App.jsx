@@ -4,8 +4,9 @@ import Chat from './Chat.jsx'
 import { I, Orb } from './ui.jsx'
 import { PMDashboard, Library, Projects, Artifacts, WorkflowRunner, ArtifactDetail } from './views/PMViews.jsx'
 import { OwnerOverview, PmDetail } from './views/OwnerViews.jsx'
+import { ProfilePanel, History } from './views/AccountViews.jsx'
 import {
-  ALL_TASKS, taskById, docTemplate, artifactTypeForTask, critiqueFor,
+  ALL_TASKS, taskById, docTemplate, artifactTypeForTask, critiqueFor, briefContext,
   PM_PROFILE, PM_PROJECTS, PM_ARTIFACTS, PM_CHATS,
   OWNER_PROFILE, PMS, WORKFLOWS, workflowById,
 } from './data.js'
@@ -14,16 +15,19 @@ let _uid = 0
 const uid = () => `m${++_uid}`
 let _aid = 0
 const newArtifactId = () => `na${++_aid}`
+let _sid = 0
+const newSessionId = () => `s${++_sid}`
 
 const PM_GREETING = 'С чем поработаем, Алексей?'
 const OWNER_GREETING = 'Чем помочь, Арман?'
 
 const CRUMBS = {
   dashboard: ['Главная'],
-  library: ['Создать артефакт'],
-  artifacts: ['Артефакты'],
+  library: ['Создать задачу'],
+  artifacts: ['Задачи'],
   projects: ['Проекты'],
   chat: ['Чат'],
+  history: ['История'],
   workflow: ['Workflow'],
   overview: ['Обзор команды'],
 }
@@ -39,13 +43,20 @@ export default function App() {
   const [artifacts, setArtifacts] = useState(PM_ARTIFACTS)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState(null)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
+  const [pmProfile, setPmProfile] = useState(PM_PROFILE)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [chatSessions, setChatSessions] = useState([])
+  const [activeSessionId, setActiveSessionId] = useState(null)
 
   const isPm = persona === 'pm'
-  const profile = isPm ? PM_PROFILE : OWNER_PROFILE
+  const profile = isPm ? pmProfile : OWNER_PROFILE
   const createProject = PM_PROJECTS.find((p) => p.id === createProjectId) || null
   const greeting = createProject
     ? `Проект «${createProject.name}» — что произведём?`
     : (isPm ? PM_GREETING : OWNER_GREETING)
+  const contextNote = isPm
+    ? [pmProfile.role, pmProfile.product, createProject ? createProject.name : null].filter(Boolean).join(' · ')
+    : null
 
   const switchPersona = (p) => {
     if (p === persona) return
@@ -71,27 +82,40 @@ export default function App() {
   const onNewChat = () => {
     setChatMessages([])
     setArmedSkillIds([])
+    setActiveSessionId(null)
     setView('chat')
   }
 
-  // «Создать артефакт» — вход в создание: сначала выбор, что произвести (библиотека-пикер),
+  // «Создать задачу» — вход в создание: сначала выбор, что произвести (библиотека-пикер),
   // затем чат с контекстом проекта. Чат и библиотека доступны только отсюда, не из top-level.
   const onCreate = () => {
     setCreateProjectId(null)
     setChatMessages([])
     setArmedSkillIds([])
+    setActiveSessionId(null)
     setView('library')
   }
 
-  // создание артефакта изнутри проекта — несёт контекст проекта в чат и в генерацию
+  // создание задачи изнутри проекта — несёт контекст проекта в чат и в генерацию
   const onCreateInProject = (projectId) => {
     setCreateProjectId(projectId)
     setChatMessages([])
     setArmedSkillIds([])
+    setActiveSessionId(null)
     setView('library')
   }
 
-  // создаёт персистентный артефакт в графе и возвращает его id (для workflow-хендоффов)
+  const onSaveProfile = (next) => { setPmProfile(next); setProfileOpen(false) }
+  const onOpenSession = (id) => {
+    const s = chatSessions.find((x) => x.id === id)
+    if (!s) return
+    setChatMessages(s.messages || [])
+    setActiveSessionId(s.id)
+    setArmedSkillIds([])
+    setView('chat')
+  }
+
+  // создаёт персистентный задача в графе и возвращает его id (для workflow-хендоффов)
   const produceArtifact = useCallback((spec) => {
     const id = newArtifactId()
     setArtifacts((cur) => [{
@@ -126,6 +150,8 @@ export default function App() {
   }
 
   const onSend = (text, ids) => {
+    const sessionId = activeSessionId || newSessionId()
+    if (!activeSessionId) setActiveSessionId(sessionId)
     const userMsg = { id: uid(), role: 'user', text }
     const thinkingId = uid()
     setChatMessages((cur) => [...cur, userMsg, { id: thinkingId, role: 'thinking' }])
@@ -134,36 +160,46 @@ export default function App() {
 
     setTimeout(() => {
       const proj = PM_PROJECTS.find((p) => p.id === createProjectId)
-      const brief = proj ? `[Проект: ${proj.name} · ${proj.goal}] ${text}` : text
+      const brief = `${briefContext(pmProfile, proj)}${text}`
 
+      let finalMsgs
       if (armed.length === 0) {
-        setChatMessages((cur) => [...cur.filter((m) => m.id !== thinkingId), {
-          id: uid(), role: 'assistant',
-          text: 'Готов помочь. Добавь навык или промт через «+», чтобы я собрал артефакт по структуре — PRD, JTBD, гипотезы и т.д.',
-        }])
-        return
+        const m = { id: uid(), role: 'assistant', text: 'Готов помочь. Добавь навык или промт через «+», чтобы я собрал задачу по структуре — PRD, JTBD, гипотезы и т.д.' }
+        setChatMessages((cur) => { finalMsgs = [...cur.filter((x) => x.id !== thinkingId), m]; return finalMsgs })
+      } else {
+        const persisted = []
+        const msgs = armed.map((tid) => {
+          const t = taskById(tid)
+          const aid = newArtifactId()
+          if (proj) {
+            persisted.push({
+              id: aid, type: artifactTypeForTask(tid), title: t ? t.name : 'Задача',
+              taskId: tid, project: proj.name, when: 'только что',
+              status: 'draft', version: 1, source: ['drafted'], evidence: [], links: [],
+            })
+          }
+          return {
+            id: uid(), role: 'assistant', type: 'artifact', taskId: tid,
+            title: t ? t.name : 'Задача', project: proj ? proj.name : null,
+            artifactId: proj ? aid : null, docHtml: docTemplate(tid, brief),
+          }
+        })
+        if (persisted.length) setArtifacts((cur) => [...persisted, ...cur])
+        setChatMessages((cur) => { finalMsgs = [...cur.filter((x) => x.id !== thinkingId), ...msgs]; return finalMsgs })
       }
 
-      const persisted = []
-      const msgs = armed.map((tid) => {
-        const t = taskById(tid)
-        const aid = newArtifactId()
-        if (proj) {
-          persisted.push({
-            id: aid, type: artifactTypeForTask(tid), title: t ? t.name : 'Артефакт',
-            taskId: tid, project: proj.name, when: 'только что',
-            status: 'draft', version: 1, source: ['drafted'], evidence: [], links: [],
-          })
-        }
-        return {
-          id: uid(), role: 'assistant', type: 'artifact', taskId: tid,
-          title: t ? t.name : 'Артефакт', project: proj ? proj.name : null,
-          artifactId: proj ? aid : null, docHtml: docTemplate(tid, brief),
-        }
+      // upsert session (история)
+      const title = armed.length
+        ? armed.map((tid) => (taskById(tid) || {}).name).filter(Boolean).join(' + ')
+        : (text.slice(0, 60) || 'Новый чат')
+      setChatSessions((cur) => {
+        const rest = cur.filter((s) => s.id !== sessionId)
+        return [{
+          id: sessionId, title, when: 'только что',
+          taskIds: armed, projectName: proj ? proj.name : null,
+          messages: finalMsgs || [],
+        }, ...rest]
       })
-
-      if (persisted.length) setArtifacts((cur) => [...persisted, ...cur])
-      setChatMessages((cur) => [...cur.filter((m) => m.id !== thinkingId), ...msgs])
     }, 1100)
   }
 
@@ -173,7 +209,7 @@ export default function App() {
   const selectedArtifact = artifacts.find((x) => x.id === selectedArtifactId) || null
 
   const crumb = view === 'artifact' && selectedArtifact
-      ? [selectedArtifact.project || 'Артефакты', selectedArtifact.title]
+      ? [selectedArtifact.project || 'Задачи', selectedArtifact.title]
     : view === 'workflow' && selectedWorkflowId
       ? ['Проекты', createProject ? createProject.name : '', (workflowById(selectedWorkflowId) || {}).name].filter(Boolean)
     : selectedProject ? ['Проекты', selectedProject.name]
@@ -191,6 +227,7 @@ export default function App() {
       />
     )
     else if (view === 'library') content = <Library onArm={onArm} />
+    else if (view === 'history') content = <History sessions={chatSessions} onOpenSession={onOpenSession} />
     else if (view === 'artifacts') content = <Artifacts artifacts={artifacts} onOpenArtifact={onOpenArtifact} />
     else if (view === 'artifact') content = (
       <ArtifactDetail
@@ -219,7 +256,7 @@ export default function App() {
     else if (view === 'chat') content = (
       <Chat
         messages={chatMessages} armedSkillIds={armedSkillIds}
-        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView('library')} greeting={greeting}
+        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote}
       />
     )
   } else {
@@ -233,7 +270,7 @@ export default function App() {
     else if (view === 'chat') content = (
       <Chat
         messages={chatMessages} armedSkillIds={armedSkillIds}
-        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView('library')} greeting={greeting}
+        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote}
       />
     )
   }
@@ -246,6 +283,7 @@ export default function App() {
         onNav={onNav} onCreate={onCreate}
         onOpenProject={(id) => { setSelectedProjectId(id); setView('projects') }}
         onOpenPm={(id) => { setSelectedPmId(id); setView('overview') }}
+        onOpenProfile={() => setProfileOpen(true)}
       />
       <div className="main">
         <div className="topbar">
@@ -273,6 +311,9 @@ export default function App() {
           </div>
         )}
       </div>
+      {profileOpen && isPm && (
+        <ProfilePanel profile={pmProfile} onSave={onSaveProfile} onClose={() => setProfileOpen(false)} />
+      )}
     </div>
   )
 }

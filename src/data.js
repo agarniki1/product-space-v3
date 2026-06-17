@@ -84,7 +84,16 @@ export const taskById = (id) => ALL_TASKS.find((t) => t.id === id)
 export const HERO = ['s10', 's3', 's19', 's15', 's20', 's7']
 
 // ============ PM persona ============
-export const PM_PROFILE = { name: 'Алексей Романов', initials: 'AR', role: 'Product Manager', company: 'Revolut', color: '#f47b42' }
+export const PM_PROFILE = {
+  name: 'Алексей Романов', initials: 'AR', role: 'Product Manager', company: 'Revolut', color: '#f47b42',
+  plan: 'Pro',
+  // личный бриф — устойчивый контекст, который подставляется в генерацию задач
+  product: 'Debit cards и onboarding',
+  audience: 'Retail-клиенты DE/AT, 25–40, digital-first',
+  responsibilities: 'Активация и time-to-value новых пользователей карточного продукта',
+  markets: 'UK, EEA, US',
+  goals: 'Рост активации, spend и retention',
+}
 
 export const PM_PROJECTS = [
   { id: 'pr1', name: 'Debit card · DACH', product: 'Payments', status: 'active', progress: 42,
@@ -105,7 +114,7 @@ export const PM_PROJECTS = [
 ]
 
 // ---- artifact model ----
-// тип артефакта: label + иконка + цвет (для графа и карточек)
+// тип задачи: label + иконка + цвет (для графа и карточек)
 export const ARTIFACT_TYPES = {
   research_note:      { label: 'Research note',       icon: 'NotebookPen',  color: '#2563EB' },
   insight:            { label: 'Инсайт',              icon: 'Lightbulb',    color: '#16A34A' },
@@ -121,7 +130,7 @@ export const ARTIFACT_TYPES = {
 }
 export const artifactTypeOf = (t) => ARTIFACT_TYPES[t] || ARTIFACT_TYPES.research_note
 
-// типы связей между артефактами
+// типы связей между задачими
 export const LINK_TYPES = {
   derived_from: 'выведен из',
   backed_by: 'подкреплён',
@@ -131,10 +140,10 @@ export const LINK_TYPES = {
   decided_by: 'решение по',
 }
 
-// provenance — чем порождён артефакт (без имён моделей в UI)
+// provenance — чем порождён задача (без имён моделей в UI)
 export const PROVENANCE = {
   web:       { label: 'Исследовано в вебе', icon: 'Globe' },
-  synthesis: { label: 'Собрано из артефактов', icon: 'Combine' },
+  synthesis: { label: 'Собрано из задач', icon: 'Combine' },
   drafted:   { label: 'Черновик AI', icon: 'Sparkles' },
   reviewed:  { label: 'Проверено критикой', icon: 'ShieldCheck' },
   manual:    { label: 'Вручную', icon: 'PenLine' },
@@ -195,7 +204,7 @@ export const PM_ARTIFACTS = [
     links: [{ type: 'tested_by', artifactId: 'a6' }] },
 ]
 export const artifactById = (id) => PM_ARTIFACTS.find((a) => a.id === id)
-// тип артефакта, который производит навык/промт — по его этапу
+// тип задачи, который производит навык/промт — по его этапу
 const STAGE_ARTIFACT_TYPE = {
   discovery: 'problem_statement',
   research: 'research_note',
@@ -231,7 +240,7 @@ export const WORKFLOWS = [
 ]
 export const workflowById = (id) => WORKFLOWS.find((w) => w.id === id)
 
-// red-team критика: типовые слабые места по типу артефакта
+// red-team критика: типовые слабые места по типу задачи
 const CRITIQUE_COMMON = [
   'Нет явного указания на источник данных — часть утверждений не подкреплена evidence.',
   'Не обозначены допущения, которые делают вывод верным.',
@@ -264,7 +273,20 @@ const CRITIQUE_BY_TYPE = {
   ],
 }
 export const critiqueFor = (type) => [...(CRITIQUE_BY_TYPE[type] || []), ...CRITIQUE_COMMON].slice(0, 4)
-// все артефакты, связанные с данным (входящие + исходящие связи)
+
+// устойчивый контекст из профиля + проекта, который подставляется в генерацию
+export const briefContext = (profile, project) => {
+  const parts = []
+  if (profile) {
+    if (profile.role) parts.push(`Роль: ${profile.role}`)
+    if (profile.product) parts.push(`Продукт: ${profile.product}`)
+    if (profile.audience) parts.push(`Аудитория: ${profile.audience}`)
+    if (profile.responsibilities) parts.push(`Зона ответственности: ${profile.responsibilities}`)
+  }
+  if (project) parts.push(`Проект: ${project.name} — ${project.goal}`)
+  return parts.length ? `[Контекст — ${parts.join(' · ')}] ` : ''
+}
+// все задачи, связанные с данным (входящие + исходящие связи)
 export const linkedArtifacts = (id) => {
   const a = artifactById(id)
   if (!a) return []

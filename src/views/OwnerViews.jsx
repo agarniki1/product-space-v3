@@ -28,7 +28,7 @@ export function OwnerOverview({ profile, pms, onOpenPm, onArm, onNav }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
             <Stat value={pms.length} label="Продактов" />
             <Stat value={allProducts.length} label="Продуктов" />
-            <Stat value={totalArtifacts} label="Артефактов" />
+            <Stat value={totalArtifacts} label="Задач" />
             <Stat value={atRisk} label="Требуют внимания" />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
@@ -63,7 +63,7 @@ export function OwnerOverview({ profile, pms, onOpenPm, onArm, onNav }) {
                     {statusBadge(pm.status)}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>{pm.summary}</div>
-                  <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{pm.products.length} продукта · {pm.artifacts} артефактов · {pm.lastActive}</div>
+                  <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{pm.products.length} продукта · {pm.artifacts} задач · {pm.lastActive}</div>
                 </div>
                 <I name="ArrowRight" size={15} color="var(--ink-3)" style={{ marginTop: 4 }} />
               </button>
@@ -119,7 +119,7 @@ export function PmDetail({ pm, onBack, onArm }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             <Stat value={pm.products.length} label="Продуктов" />
-            <Stat value={pm.artifacts} label="Артефактов" />
+            <Stat value={pm.artifacts} label="Задач" />
             <Stat value={pm.chats} label="Чатов" />
           </div>
         </div>
