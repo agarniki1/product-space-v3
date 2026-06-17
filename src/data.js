@@ -286,6 +286,29 @@ export const briefContext = (profile, project) => {
   if (project) parts.push(`Проект: ${project.name} — ${project.goal}`)
   return parts.length ? `[Контекст — ${parts.join(' · ')}] ` : ''
 }
+
+// подбор навыков под роль/бриф пользователя (персонализация быстрых действий)
+export const recommendedTasks = (profile) => {
+  const text = [profile?.role, profile?.product, profile?.audience, profile?.responsibilities, profile?.goals]
+    .filter(Boolean).join(' ').toLowerCase()
+  const score = { discovery: 1, research: 0, delivery: 1, proto: 0, analytics: 0, strategy: 0 }
+  const bump = (re, stage, n = 2) => { if (re.test(text)) score[stage] += n }
+  bump(/discovery|интервью|jtbd|проблем|insight|инсайт/, 'discovery')
+  bump(/research|исследова|конкурент|рынок|market/, 'research')
+  bump(/prd|spec|delivery|деливери|релиз|launch|запуск/, 'delivery')
+  bump(/прототип|prototype|figma|design|дизайн/, 'proto')
+  bump(/активаци|retention|воронк|метрик|analytics|данны|growth|engagement|loyalty/, 'analytics')
+  bump(/strateg|стратег|gtm|позициони|roadmap|road map/, 'strategy')
+  const order = Object.keys(score).sort((a, b) => score[b] - score[a])
+  const picks = []
+  for (const st of order) {
+    const s = SKILLS.find((x) => x.stage === st && !picks.includes(x.id))
+    if (s) picks.push(s.id)
+    if (picks.length >= 4) break
+  }
+  for (const h of HERO) if (!picks.includes(h) && picks.length < 6) picks.push(h)
+  return picks.slice(0, 6)
+}
 // все задачи, связанные с данным (входящие + исходящие связи)
 export const linkedArtifacts = (id) => {
   const a = artifactById(id)

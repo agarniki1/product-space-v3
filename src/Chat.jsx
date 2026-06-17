@@ -54,7 +54,7 @@ function ArtifactCard({ msg }) {
   )
 }
 
-export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpenLibrary, greeting, contextNote }) {
+export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpenLibrary, greeting, contextNote, suggestions }) {
   const [text, setText] = useState('')
   const [engine, setEngine] = useState(0)
   const [showApps, setShowApps] = useState(true)
@@ -63,7 +63,7 @@ export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpen
   const endRef = useRef(null)
   const armed = armedSkillIds.map((id) => taskById(id)).filter(Boolean)
   const hasMessages = messages.some((m) => m.role !== 'thinking') || messages.length > 0
-  const heroTasks = HERO.map((id) => taskById(id)).filter(Boolean).slice(0, 4)
+  const heroTasks = (suggestions && suggestions.length ? suggestions : HERO).map((id) => taskById(id)).filter(Boolean).slice(0, 4)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
 
@@ -203,7 +203,7 @@ export default function Chat({ messages, armedSkillIds, onSend, onDisarm, onOpen
         ))}
         <div ref={endRef} style={{ height: 8 }} />
       </div>
-      <div style={{ padding: '12px 28px 16px', borderTop: '1px solid var(--border)', background: 'rgba(247,246,243,0.92)' }}>
+      <div style={{ padding: '6px 28px 18px', background: 'linear-gradient(180deg, rgba(247,246,243,0), rgba(247,246,243,0.96) 32%)' }}>
         {inputBox(false)}
       </div>
     </div>

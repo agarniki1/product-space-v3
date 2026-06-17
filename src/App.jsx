@@ -6,7 +6,7 @@ import { PMDashboard, Library, Projects, Artifacts, WorkflowRunner, ArtifactDeta
 import { OwnerOverview, PmDetail } from './views/OwnerViews.jsx'
 import { ProfilePanel, History } from './views/AccountViews.jsx'
 import {
-  ALL_TASKS, taskById, docTemplate, artifactTypeForTask, critiqueFor, briefContext,
+  ALL_TASKS, taskById, docTemplate, artifactTypeForTask, critiqueFor, briefContext, recommendedTasks,
   PM_PROFILE, PM_PROJECTS, PM_ARTIFACTS, PM_CHATS,
   OWNER_PROFILE, PMS, WORKFLOWS, workflowById,
 } from './data.js'
@@ -57,6 +57,7 @@ export default function App() {
   const contextNote = isPm
     ? [pmProfile.role, pmProfile.product, createProject ? createProject.name : null].filter(Boolean).join(' · ')
     : null
+  const recommended = recommendedTasks(pmProfile)
 
   const switchPersona = (p) => {
     if (p === persona) return
@@ -106,6 +107,8 @@ export default function App() {
   }
 
   const onSaveProfile = (next) => { setPmProfile(next); setProfileOpen(false) }
+  const onRenameSession = (id, title) => setChatSessions((cur) => cur.map((s) => (s.id === id ? { ...s, title } : s)))
+  const onDeleteSession = (id) => setChatSessions((cur) => cur.filter((s) => s.id !== id))
   const onOpenSession = (id) => {
     const s = chatSessions.find((x) => x.id === id)
     if (!s) return
@@ -221,13 +224,13 @@ export default function App() {
     if (view === 'dashboard') content = (
       <PMDashboard
         profile={PM_PROFILE} projects={PM_PROJECTS} artifacts={artifacts}
-        onArm={onArm} onNav={onNav} onCreate={onCreate}
+        onArm={onArm} onNav={onNav} onCreate={onCreate} suggestions={recommended}
         onOpenProject={(id) => { setSelectedProjectId(id); setView('projects') }}
         onOpenArtifact={onOpenArtifact}
       />
     )
     else if (view === 'library') content = <Library onArm={onArm} />
-    else if (view === 'history') content = <History sessions={chatSessions} onOpenSession={onOpenSession} />
+    else if (view === 'history') content = <History sessions={chatSessions} onOpenSession={onOpenSession} onRenameSession={onRenameSession} onDeleteSession={onDeleteSession} />
     else if (view === 'artifacts') content = <Artifacts artifacts={artifacts} onOpenArtifact={onOpenArtifact} />
     else if (view === 'artifact') content = (
       <ArtifactDetail
@@ -256,7 +259,7 @@ export default function App() {
     else if (view === 'chat') content = (
       <Chat
         messages={chatMessages} armedSkillIds={armedSkillIds}
-        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote}
+        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote} suggestions={recommended}
       />
     )
   } else {
@@ -270,7 +273,7 @@ export default function App() {
     else if (view === 'chat') content = (
       <Chat
         messages={chatMessages} armedSkillIds={armedSkillIds}
-        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote}
+        onSend={onSend} onDisarm={onDisarm} onOpenLibrary={() => setView("library")} greeting={greeting} contextNote={contextNote} suggestions={recommended}
       />
     )
   }

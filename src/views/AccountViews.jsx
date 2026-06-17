@@ -62,14 +62,22 @@ export function ProfilePanel({ profile, onSave, onClose }) {
   )
 }
 
+
 // ---- история чатов / задач ----
-export function History({ sessions, onOpenSession }) {
+export function History({ sessions, onOpenSession, onRenameSession, onDeleteSession }) {
+  const [editId, setEditId] = useState(null)
+  const [draft, setDraft] = useState('')
+  const [confirmId, setConfirmId] = useState(null)
+
+  const startEdit = (s) => { setEditId(s.id); setDraft(s.title); setConfirmId(null) }
+  const saveEdit = () => { if (draft.trim()) onRenameSession(editId, draft.trim()); setEditId(null) }
+
   return (
     <div className="scroll">
       <div className="wrap" style={{ maxWidth: 820 }}>
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em' }}>История</div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Прошлые чаты и сгенерированные задачи. Можно вернуться и продолжить.</div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Прошлые чаты и сгенерированные задачи. Можно вернуться, переименовать или удалить.</div>
         </div>
 
         {sessions.length === 0 ? (
@@ -82,21 +90,44 @@ export function History({ sessions, onOpenSession }) {
           <div className="card">
             {sessions.map((s) => {
               const tasks = (s.taskIds || []).map((id) => taskById(id)).filter(Boolean)
+              const editing = editId === s.id
               return (
-                <button key={s.id} className="row" onClick={() => onOpenSession(s.id)}>
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
                   <TaskIcon name={tasks[0] ? tasks[0].icon : 'MessageSquare'} size={30} bg="rgba(91,120,239,0.1)" color="var(--ai)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="ellipsis" style={{ fontSize: 13, fontWeight: 500 }}>{s.title}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span className="muted" style={{ fontSize: 11 }}>{s.when}</span>
-                      {s.projectName && <span className="muted" style={{ fontSize: 11 }}>· {s.projectName}</span>}
-                      {tasks.slice(0, 2).map((t) => (
-                        <span key={t.id} style={{ fontSize: 10, fontWeight: 600, color: 'var(--ai)', background: 'rgba(91,120,239,0.1)', padding: '1px 7px', borderRadius: 999 }}>{t.name}</span>
-                      ))}
-                    </div>
+                    {editing ? (
+                      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditId(null) }}
+                        onBlur={saveEdit}
+                        style={{ width: '100%', height: 30, padding: '0 9px', border: '1px solid var(--ai)', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }} />
+                    ) : (
+                      <button onClick={() => onOpenSession(s.id)} style={{ background: 'none', textAlign: 'left', width: '100%' }}>
+                        <div className="ellipsis" style={{ fontSize: 13, fontWeight: 500 }}>{s.title}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 2, flexWrap: 'wrap' }}>
+                          <span className="muted" style={{ fontSize: 11 }}>{s.when}</span>
+                          {s.projectName && <span className="muted" style={{ fontSize: 11 }}>· {s.projectName}</span>}
+                          {tasks.slice(0, 2).map((t) => (
+                            <span key={t.id} style={{ fontSize: 10, fontWeight: 600, color: 'var(--ai)', background: 'rgba(91,120,239,0.1)', padding: '1px 7px', borderRadius: 999 }}>{t.name}</span>
+                          ))}
+                        </div>
+                      </button>
+                    )}
                   </div>
-                  <I name="ArrowRight" size={15} color="var(--ink-3)" />
-                </button>
+
+                  {!editing && confirmId !== s.id && (
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <button className="btn" style={{ padding: 6 }} title="Переименовать" onClick={() => startEdit(s)}><I name="Pencil" size={13} /></button>
+                      <button className="btn" style={{ padding: 6 }} title="Удалить" onClick={() => setConfirmId(s.id)}><I name="Trash2" size={13} color="var(--red)" /></button>
+                    </div>
+                  )}
+                  {confirmId === s.id && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span className="muted" style={{ fontSize: 11.5 }}>Удалить?</span>
+                      <button className="btn" style={{ padding: '5px 9px', fontSize: 11.5 }} onClick={() => { onDeleteSession(s.id); setConfirmId(null) }}>Да</button>
+                      <button className="btn" style={{ padding: '5px 9px', fontSize: 11.5 }} onClick={() => setConfirmId(null)}>Нет</button>
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>

@@ -8,10 +8,10 @@ const statusBadge = (s) => {
 }
 
 // ============ PM Dashboard ============
-export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onOpenProject, onNav, onOpenArtifact }) {
+export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onOpenProject, onNav, onOpenArtifact, suggestions }) {
   const hour = new Date().getHours()
   const hi = hour < 12 ? 'Доброе утро' : hour < 17 ? 'Добрый день' : 'Добрый вечер'
-  const quick = HERO.slice(0, 4).map((id) => taskById(id)).filter(Boolean)
+  const quick = (suggestions && suggestions.length ? suggestions : HERO).slice(0, 4).map((id) => taskById(id)).filter(Boolean)
   const needsReview = artifacts.filter((a) => a.status === 'in_review')
   const decisions = artifacts.filter((a) => a.type === 'decision')
 
@@ -28,7 +28,7 @@ export function PMDashboard({ profile, projects, artifacts, onArm, onCreate, onO
             <Btn variant="ai" onClick={onCreate}><I name="Plus" size={14} strokeWidth={2.1} /> Создать задачу</Btn>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>Быстро:</span>
+            <span className="muted" style={{ fontSize: 12, alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 4 }}><I name="Sparkles" size={12} color="var(--ai)" /> Под вашу роль:</span>
             {quick.map((t) => (
               <button key={t.id} className="chip" onClick={() => onArm(t.id)}>
                 <TaskIcon name={t.icon} size={17} /> {t.name}
